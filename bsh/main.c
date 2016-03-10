@@ -15,6 +15,8 @@ int blackout_help(char **args);
 int blackout_exit(char **args);
 int blackout_echo(char **args);
 int blackout_lsdir(char **args);
+int blackout_write(char **args);
+int blackout_read(char **args);
 
 /*
   List of builtin commands, followed by their corresponding functions.
@@ -24,7 +26,9 @@ char *builtin_str[] = {
   "help",
   "exit",
   "echo",
-  "lsdir"
+  "lsdir",
+  "write",
+  "read"
 };
 
 int (*builtin_func[]) (char **) = {
@@ -32,7 +36,9 @@ int (*builtin_func[]) (char **) = {
   &blackout_help,
   &blackout_exit,
   &blackout_echo,
-  &blackout_lsdir
+  &blackout_lsdir,
+  &blackout_write,
+  &blackout_read
 };
 
 int blackout_num_builtins() {
@@ -46,6 +52,87 @@ int blackout_num_builtins() {
 /**
     builtin command launch
 **/
+
+int blackout_read(char **args)
+{
+	if (args[1] == NULL)
+	{
+		printf("bsh: read [file]\n");
+	}
+	else if (args[2] != NULL)
+	{
+		printf("bsh: expected only one argument\n");
+	}
+	else
+	{
+#define CHUNK 2048
+		/* read 2048 bytes at a time */
+		FILE *file;
+		size_t nread;
+
+		file = fopen(args[1], "r");
+		char *buf = malloc(CHUNK);
+
+		if (buf == NULL)
+		{
+			printf("bsh: failed to create buffer for [file]\n");
+		}
+		if (file)
+		{
+			/* otherwise do this.  Note ' chunk ' instead of bufsize */
+			while ((nread = fread(buf, 1, CHUNK, file)) > 0)
+			{
+				fwrite(buf, 1, nread, stdout);
+				if (ferror(file))
+				{
+
+					printf("bsh: error while reading file\n");
+				}
+				printf(" \n");
+			}
+		}
+		else
+		{
+			printf("bsh: file is empty or does not exists\n");
+		}
+	}
+
+	return 1;
+}
+
+
+int blackout_write(char **args)
+{
+	if (args[1] == NULL)
+	{
+		printf("bsh: write [file] [content]\n");
+	}
+	else if (args[2] == NULL)
+	{
+		printf("bsh: expected [content]\n");
+	}
+	else
+	{
+		FILE *f = fopen(args[1], "w");
+		if (f != NULL)
+		{
+			int i = 2;
+			while (args[i] != NULL)
+			{
+				fprintf(f, " %s ", args[i]);
+				i++;
+			}
+			fputs(f, " ");
+			fclose(f);
+		}
+		else
+		{
+			printf("bsh: error while opening file\n");
+		}
+	}
+	return 1;
+}
+
 
 int blackout_echo(char **args)
 {
