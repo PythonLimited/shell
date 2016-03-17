@@ -7,6 +7,10 @@
 #include <string.h>
 #include <errno.h>
 #include "/sdcard/cmd/bsh/main.h"
+#include "/sdcard/cmd/bsh/functions.h"
+
+char **home;
+char **workdir;
 
 /* 
    Function Declarations for builtin shell commands: */
@@ -21,7 +25,7 @@ int blackout_su(char **args);
 int blackout_wifi(char **args);
 int blackout_test(char **args);
 int blackout_launch(char **args);
-int blackout_conkat(char **args);
+int blackout_copy(char **args);
 /* 
    List of builtin commands, followed by their corresponding functions. */
 char *builtin_str[] = {
@@ -36,7 +40,7 @@ char *builtin_str[] = {
 	"wifi",
 	"test",
 	"launch",
-	"conkat"
+	"copy"
 };
 
 int (*builtin_func[]) (char **) =
@@ -48,7 +52,7 @@ int (*builtin_func[]) (char **) =
 		&blackout_lsdir,
 		&blackout_write,
 		&blackout_read, &blackout_su, &blackout_wifi, &blackout_test, &blackout_launch,
-		&blackout_conkat};
+		&blackout_copy};
 
 int blackout_num_builtins()
 {
@@ -64,76 +68,74 @@ int blackout_num_builtins()
 
 /* ./ process has to be fixed. */
 
-int blackout_conkat(char **args)
+int blackout_copy(char **args)
 {
-	execvp(args[0], args);
+	printf("coming soon ;)\n");
+	return 1;
 }
 
 int blackout_launch(char **args)
 {
-	args[0] = args[1];
-	args[1] = NULL;
-	pid_t pid, wpid;
-	int status;
-
-	pid = fork();
-	if (pid == 0)
+	if (args[1] == NULL)
 	{
-		// Child process
-		if (execvp(args[0], args) == -1)
-		{
-			printf("bsh: error starting process\n");
-			printf("bsh: fixme initiated\n");
-			int mode = chmod(args[0], "0777");
-			if (mode)
-			{
-				printf("fixme: an error occurdet (are you root?)\n");
-			}
-			else
-			{
-				printf("fixme: success please run command again\n");
-			}
-		}
-		exit(EXIT_FAILURE);
-	}
-	else if (pid < 0)
-	{
-		// Error forking
-		printf("bsh: error executing process\n");
+		printf("bsh: usage launch [command] [arguments]\n");
 	}
 	else
 	{
-		// Parent process
-		do
+		int p = 1;
+		int i = 0;
+		while (args[p] != NULL)
 		{
-			wpid = waitpid(pid, &status, WUNTRACED);
+			args[i] = args[p];
+			args[p] = NULL;
+			i++;
+			p++;
 		}
-		while (!WIFEXITED(status) && !WIFSIGNALED(status));
-	}
+		pid_t pid, wpid;
+		int status;
 
+		pid = fork();
+		if (pid == 0)
+		{
+			// Child process
+			if (execvp(args[0], args) == -1)
+			{
+				printf("bsh: error starting process\n");
+				printf("bsh: bypass initiated\n");
+				int mode = blackout_copy(args);
+				if (mode == NULL)
+				{
+					printf("fixme: success please run command again\n");
+				}
+				else
+				{
+					printf("bypass: an error occurdet (are you root?)\n");
+				}
+			}
+			exit(EXIT_FAILURE);
+		}
+		else if (pid < 0)
+		{
+			// Error forking
+			printf("bsh: error executing process\n");
+		}
+		else
+		{
+			// Parent process
+			do
+			{
+				wpid = waitpid(pid, &status, WUNTRACED);
+			}
+			while (!WIFEXITED(status) && !WIFSIGNALED(status));
+		}
+
+	}
 	return 1;
 }
 
 int blackout_test(char **args)
 {
-	char cwd[1024];
-	if (getcwd(cwd, sizeof(cwd)) != NULL)
-	{
-	}
-	else
-	{
-		perror("bsh:error while entering directory");
-	}
-	int test;
-	if (test)
-	{
-		printf("good\n");
-	}
-	else
-	{
-		printf("bad\n");
-	}
-	return 1;
+
 }
 
 int blackout_wifi(char **args)
@@ -290,10 +292,16 @@ int blackout_write(char **args)
 
 int blackout_echo(char **args)
 {
+	if (args[1] == NULL)
+	{
+		
+	}
+	else
+	{
 	int length = 1;
 	while (args[length] != NULL)
 	{
-		if (strcmp(args[length], "\n") == 0)
+		if (strcmp(args[length], "\n") == NULL)
 		{
 			printf("\n");
 		}
@@ -304,6 +312,7 @@ int blackout_echo(char **args)
 		length++;
 	}
 	printf("\n");
+	}
 	return 1;
 }
 
@@ -386,8 +395,6 @@ int blackout_help(char **args)
 	{
 		printf("%s\n", builtin_str[i]);
 	}
-
-	printf("Use the help command for information on other programs.\n");
 	return 1;
 }
 
@@ -494,6 +501,7 @@ char **split_line(char *line)
 
 	if (!tokens)
 	{
+		printf("[FATAL]\n");
 		printf("bsh: allocation error\n");
 		exit(EXIT_FAILURE);
 	}
@@ -510,7 +518,8 @@ char **split_line(char *line)
 			tokens = realloc(tokens, bufsize * sizeof(char *));
 			if (!tokens)
 			{
-				printf("lsh: allocation error\n");
+				printf("[FATAL]\n");
+				printf("bsh: allocation error\n");
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -528,7 +537,6 @@ void shell_loop(void)
 {
 	char *line;
 	char **args;
-	char **newargs;
 	int status;
 
 	do
@@ -539,7 +547,8 @@ void shell_loop(void)
 		}
 		else
 		{
-			perror("bsh:error while entering directory");
+			printf("[WARNING]\n");
+			printf("bsh: error while entering directory\n");
 		}
 		printf("%s $ ", cwd);
 		line = read_line();
@@ -558,10 +567,49 @@ void shell_loop(void)
    @param argv Argument vector.
    @return status code
  */
+ 
+ void is_su(void)
+ {
+ 	if (getuid() != NULL)
+ 	{
+ 		printf("[FATAL] no root access found, aborting\n");
+ 		exit("su");
+ 	}
+ }
+ 
+void config(char **args)
+{
+	
+}
+ 
 int main(int argc, char **argv)
 {
-	// Load config files, if any.
-
+	int c = is_su();
+	if (argv[1] != NULL && strcmp(argv[1], "-HOME")== NULL)
+	{
+		if (argv[2] != NULL)
+		{
+			printf("[INFO] using '%s' as home directory\n");
+		}
+	}
+	else if (argv[1] != NULL && strcmp(argv[1], "-dev")== NULL)
+	{
+		printf("[WARNING] su request temporary disabled\n");
+		shell_loop();
+		exit("dev");
+	}
+	else
+	{
+		printf("[WARNING] unrecognized arguments. ignoring\n");
+	}
+	if (c == NULL)
+	{
+		printf("[INFO] root access found\n");
+	}
+	else
+	{
+		
+	}
 	// Run command loop.
 	shell_loop();
 
